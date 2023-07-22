@@ -24,6 +24,7 @@ contract LeelaGame {
 
     mapping(address => Player) public players;
     mapping(address => uint8[]) public playerRolls;
+    mapping(address => uint256[]) public playerPlans;
 
     event DiceRolled(address indexed roller, uint8 indexed rolled, uint256 indexed currentPlan);
 
@@ -80,8 +81,12 @@ contract LeelaGame {
         Player storage player = players[playerAddress];
         player.previousPlan = player.plan;
         uint256 newPlan = player.plan + roll;
+       
 
         // Snakes that lead the player downwards
+        if (newPlan > TOTAL_PLANS) {
+            newPlan = player.plan; 
+        }
         if (newPlan == 12) {
             newPlan = 8;
         } else if (newPlan == 16) {
@@ -130,7 +135,8 @@ contract LeelaGame {
         }
 
         player.plan = newPlan;
-
+        playerPlans[playerAddress].push(newPlan);
+        
         // Check for finish
         if (newPlan == WIN_PLAN) {
             player.isFinished = true;
@@ -143,13 +149,12 @@ contract LeelaGame {
         return playerRolls[player];
     }
 
-    function getRollAtIndex(address player, uint index) public view returns (uint256) {
-        require(index < playerRolls[player].length, "Index out of bounds");
-        return uint256(playerRolls[player][index]);
-    }
-
     function checkGameStatus(address playerAddress) public view returns(bool isStart, bool isFinished) {
         Player storage player = players[playerAddress];
         return (player.isStart, player.isFinished);
+    }
+
+    function getPlanHistory(address player) public view returns (uint256[] memory) {
+        return playerPlans[player];
     }
 }
