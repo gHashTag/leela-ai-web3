@@ -2,7 +2,11 @@
 
 pragma solidity ^0.8.0;
 
+import "./IERC20.sol"; 
+
 contract LeelaGame {
+    IERC20 public leelaToken; 
+    
     uint8 constant MAX_ROLL = 6;
     uint8 constant WIN_PLAN = 68;
     uint8 constant TOTAL_PLANS = 72;
@@ -16,6 +20,7 @@ contract LeelaGame {
     }
 
     constructor() {
+        leelaToken = IERC20(leelaToken);
         Player memory newPlayer;
         newPlayer.plan = 68;
         newPlayer.previousPlan = 68;
@@ -28,6 +33,16 @@ contract LeelaGame {
 
     event DiceRolled(address indexed roller, uint8 indexed rolled, uint256 indexed currentPlan);
 
+    // Function for writing off tokens for each move
+    function chargeTokenForRoll(address playerAddress) private {
+        uint256 allowance = leelaToken.allowance(playerAddress, address(this));
+        require(allowance >= 1, "Insufficient allowance for transfer");
+
+        bool success = leelaToken.transferFrom(playerAddress, address(this), 1);
+        require(success, "TransferFrom failed");
+    }
+
+
     function rollDice() external {
         uint8 rollResult = generateRandomNumber();
         playerRolls[msg.sender].push(rollResult);
@@ -37,10 +52,12 @@ contract LeelaGame {
             player.plan = 6;
             player.isStart = true;
             player.consecutiveSixes = 1;
+            chargeTokenForRoll(msg.sender);
             return;
         }
 
         handleRollResult(rollResult, msg.sender);
+        chargeTokenForRoll(msg.sender);
         emit DiceRolled(msg.sender, rollResult, player.plan);
     }
 
