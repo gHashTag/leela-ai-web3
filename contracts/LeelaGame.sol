@@ -32,7 +32,7 @@ contract LeelaGame {
     mapping(address => uint256[]) public playerPlans;
 
     event DiceRolled(address indexed roller, uint8 indexed rolled, uint256 indexed currentPlan);
-
+    
     // Function for writing off tokens for each move
     function chargeTokenForRoll(address playerAddress) private {
         uint256 allowance = leelaToken.allowance(playerAddress, address(this));
@@ -41,7 +41,6 @@ contract LeelaGame {
         bool success = leelaToken.transferFrom(playerAddress, address(this), 1);
         require(success, "TransferFrom failed");
     }
-
 
     function rollDice() external {
         uint8 rollResult = generateRandomNumber();

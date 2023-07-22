@@ -16,7 +16,6 @@ describe('LeelaToken', function () {
   })
 
   it('Must have the correct name, symbol, and total number of tokens', async function () {
-    console.log('leelaToken', leelaToken)
     expect(await leelaToken.name()).to.equal('Leela Token')
     expect(await leelaToken.symbol()).to.equal('LEELA')
     expect(await leelaToken.totalSupply()).to.equal(ethers.parseEther('72000'))
