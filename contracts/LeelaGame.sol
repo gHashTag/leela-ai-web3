@@ -46,7 +46,7 @@ contract LeelaGame {
     require(success, 'TransferFrom failed');
   }
 
-  function rollDice() external {
+  function rollDice() external returns (uint8) {
     uint8 rollResult = generateRandomNumber();
     playerRolls[msg.sender].push(rollResult);
 
@@ -55,13 +55,14 @@ contract LeelaGame {
       player.plan = 6;
       player.isStart = true;
       player.consecutiveSixes = 1;
-      chargeTokenForRoll(msg.sender);
-      return;
+      // chargeTokenForRoll(msg.sender);
+      return rollResult;
     }
 
     handleRollResult(rollResult, msg.sender);
-    chargeTokenForRoll(msg.sender);
+    // chargeTokenForRoll(msg.sender);
     emit DiceRolled(msg.sender, rollResult, player.plan);
+    return rollResult;
   }
 
   function generateRandomNumber() private view returns (uint8) {
