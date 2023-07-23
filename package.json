@@ -3,7 +3,9 @@
   "scripts": {
     "compile": "npx hardhat compile",
     "test": "npx hardhat test",
-    "clean": "npx hardhat clean"
+    "clean": "npx hardhat clean",
+    "prettier": "prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol'",
+    "lint": "prettier --list-different --plugin=prettier-plugin-solidity 'contracts/**/*.sol'"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
@@ -37,8 +39,8 @@
     "typescript": "*"
   },
   "prettier": {
-     "tabWidth": 2,
-     "singleQuote": true,
-     "trailingComma": "all"
+    "tabWidth": 2,
+    "singleQuote": true,
+    "trailingComma": "all"
   }
 }
