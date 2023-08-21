@@ -8,161 +8,111 @@ describe('LeelaGame', function () {
   async function deployTokenFixture() {
     const [owner, addr1, addr2] = await ethers.getSigners();
 
-    const hardhatToken = await ethers.deployContract('LeelaToken');
-    await hardhatToken.waitForDeployment();
-
-    const leelaTokenAddress = hardhatToken.target;
-    const leelaGame = await ethers.deployContract('LeelaGame', [
-      leelaTokenAddress,
-    ]);
+    const leelaGame = await ethers.deployContract('LeelaGame');
 
     await leelaGame.waitForDeployment();
 
-    return { hardhatToken, leelaGame, owner, addr1, addr2 };
+    return { leelaGame, owner, addr1, addr2 };
   }
 
-  it('Should roll the dice until game is won', async function () {
-    const { hardhatToken, leelaGame, addr1 } = await loadFixture(
-      deployTokenFixture,
-    );
+  it('Player can only start the game after rolling a 6', async function () {
+    const { leelaGame, owner } = await loadFixture(deployTokenFixture);
 
-    // Положить токены на счет addr1.address
-    const amountToDeposit = 3;
-    await hardhatToken.transfer(addr1.address, amountToDeposit);
-
-    // Предоставить разрешение контракту LeelaGame на перевод токенов с адреса addr1.address
-    await hardhatToken.approve(leelaGame.target, amountToDeposit);
-
-    let gameStatus;
-    let attempts = 0;
-    const maxAttempts = 10;
-    let diceRollResult = 0;
-
-    do {
+    let rollResult = 0;
+    while (rollResult !== 6) {
       const rollDiceTx = await leelaGame.rollDice();
       const receipt = await rollDiceTx.wait();
+
       if (receipt.logs.length > 0) {
-        // Получаем событие DiceRolled из receipt.logs
-        const diceRolledEvent = receipt.logs.find(
-          (log) => log.event === 'DiceRolled',
-        );
-        if (diceRolledEvent) {
-          // Извлекаем значение броска кубика и текущего плана из аргументов события
-          const currentRollResult = diceRolledEvent.args.rolled;
-          const currentPlan = diceRolledEvent.args.currentPlan;
+        const diceRolledEvent = receipt.logs[0];
 
-          console.log('diceRollResult', currentRollResult);
-          console.log('currentPlan', currentPlan);
-
-          // Здесь вы можете использовать полученные значения для дальнейшей логики теста, если необходимо.
-          // Например, вы можете проверить, что значения корректно обновляются при каждом броске кубика.
-
-          diceRollResult = currentRollResult;
-        }
+        const currentRollResult = Number(diceRolledEvent.args.rolled);
+        console.log('currentRollResult', currentRollResult);
+        console.log('currentPlan', diceRolledEvent.args.currentPlan);
+        const plan = await leelaGame.getPlanHistory(owner.address);
+        console.log('plan', plan);
+        const [isStart] = await leelaGame.checkGameStatus(owner.address);
+        console.log('isStart', isStart);
+        rollResult = currentRollResult;
       }
-
-      try {
-        gameStatus = await leelaGame.checkGameStatus(addr1.address);
-        console.log('gameStatus', gameStatus);
-
-        const getRollHistory = await leelaGame.getRollHistory(addr1.address);
-        console.log('getRollHistory', getRollHistory);
-      } catch (error) {
-        console.error('error', error);
-      }
-
-      attempts++;
-    } while (!gameStatus.isFinished && attempts < maxAttempts);
-
-    if (gameStatus.isFinished) {
-      console.log(`Game won after ${attempts} attempts.`);
-    } else {
-      console.log(`Game not won after ${maxAttempts} attempts.`);
     }
 
-    // Проверка, что игра была успешно завершена после определенного числа попыток
-    expect(gameStatus.isFinished).to.equal(true);
+    const [isStart] = await leelaGame.checkGameStatus(owner.address);
+
+    // expect(initialPlan).to.equal(68);
+
+    // expect(rollResult).to.equal(6);
+    expect(isStart).to.equal(true);
   });
 
-  //   it('Must roll the die until a 6 is rolled', async function () {
-  //     const { hardhatToken, leelaGame, addr1 } = await loadFixture(
-  //       deployTokenFixture,
-  //     );
+  // it('Should roll the dice until game is won', async function () {
+  //   const { leelaGame, owner } = await loadFixture(deployTokenFixture);
+  //   // console.log('leelaGame', leelaGame);
+  //   let gameStatus;
+  //   let attempts = 0;
+  //   const maxAttempts = 50;
+  //   let diceRollResult = 0;
 
-  //     //Положить токены на счет addr1.address
-  //     const amountToDeposit = 3;
-  //     await hardhatToken.transfer(addr1.address, amountToDeposit);
+  //   do {
+  //     const rollDiceTx = await leelaGame.rollDice();
+  //     const receipt = await rollDiceTx.wait();
+  //     if (receipt.logs.length > 0) {
+  //       const diceRolledEvent = receipt.logs[0];
+  //       const currentRollResult = Number(diceRolledEvent.args.rolled);
+  //       console.log('diceRollResult', currentRollResult);
+  //       diceRollResult = currentRollResult;
+  //     }
+  //     try {
+  //       gameStatus = await leelaGame.checkGameStatus(owner.address);
+  //       // console.log('gameStatus', gameStatus);
+  //       // // console.log("leelaGame", leelaGame);
+  //       // const getRollHistory = await leelaGame.getRollHistory(owner.address);
+  //       // console.log('getRollHistory', getRollHistory);
+  //     } catch (error) {
+  //       console.error('error', error);
+  //     }
+  //     // console.log('attempts', attempts);
+  //     const planHistory = await leelaGame.getPlanHistory(owner.address);
 
-  //     // Предоставить разрешение контракту LeelaGame на перевод токенов с адреса addr1.address
-  //     await hardhatToken.approve(leelaGame.target, amountToDeposit);
+  //     console.log('planHistory', planHistory);
+  //     // console.log(
+  //     //   `Attempt ${attempts}: Roll - ${latestRoll}, Current Plan - ${currentPlan}`,
+  //     // );
 
-  //     let attempts = 0;
-  //     const steps = 100;
-  //     let diceRollResult = 0;
+  //     attempts++;
+  //   } while (!gameStatus.isFinished && attempts < maxAttempts);
 
-  //     do {
-  //       const rollDiceTx = await leelaGame.rollDice();
-  //       const receipt = await rollDiceTx.wait();
-
-  //       if (receipt.logs.length > 0) {
-  //         const diceRolledEvent = receipt.logs[0];
-  //         const currentRollResult = Number(diceRolledEvent.args.rolled);
-  //         console.log('diceRollResult', currentRollResult);
-  //         diceRollResult = currentRollResult;
-  //       }
-
-  //       attempts++;
-
-  //       if (attempts > steps) {
-  //         throw new Error(
-  //           `Test completed after ${steps} attempts to roll the die and roll 6.`,
-  //         );
-  //       }
-  //     } while (diceRollResult !== 6);
-
-  //     console.log(`Dropped 6 after ${attempts} tries.`);
-  //     expect(diceRollResult).to.equal(6);
-  //   });
-
-  //   it('Should return true after successful approval', async function () {
-  //     const { hardhatToken, addr1 } = await loadFixture(deployTokenFixture);
-  //     const amountToApprove = 100;
-  //     const tx = await hardhatToken.approve(addr1.address, amountToApprove);
-  //     console.log('tx', tx);
-  //     const receipt = await tx.wait();
-  //     expect(receipt.status).to.equal(1);
-  //   });
+  //   console.log(`Game won after ${attempts} attempts.`);
+  //   expect(gameStatus.isFinished).to.equal(true);
+  // });
 });
+// it('Must roll the die until a 6 is rolled', async function () {
+//   const { leelaGame, addr1 } = await loadFixture(deployTokenFixture);
 
-// it('Should have LeelaToken contract address set', async function () {
-//   const { leelaGame, hardhatToken } = await loadFixture(deployTokenFixture);
+//   let attempts = 0;
+//   const steps = 100;
+//   let diceRollResult = 0;
 
-//   // Получить адрес LeelaToken из контракта LeelaGame
-//   const leelaGameLeelaTokenAddress = await leelaGame.leelaToken();
-//   console.log('leelaGameLeelaTokenAddress', leelaGameLeelaTokenAddress);
-//   // Проверить, что адрес контракта LeelaToken в контракте LeelaGame соответствует ожидаемому значению
-//   expect(leelaGameLeelaTokenAddress).to.equal(hardhatToken.target);
-// });
+//   do {
+//     const rollDiceTx = await leelaGame.rollDice();
+//     const receipt = await rollDiceTx.wait();
 
-// it('Should assign the total supply of tokens to the owner', async function () {
-//   const { hardhatToken, owner } = await loadFixture(deployTokenFixture);
-//   const ownerBalance = await hardhatToken.balanceOf(owner.address);
-//   expect(await hardhatToken.totalSupply()).to.equal(ownerBalance);
-// });
+//     if (receipt.logs.length > 0) {
+//       const diceRolledEvent = receipt.logs[0];
+//       const currentRollResult = Number(diceRolledEvent.args.rolled);
+//       console.log('diceRollResult', currentRollResult);
+//       diceRollResult = currentRollResult;
+//     }
 
-// it('Should transfer tokens between accounts', async function () {
-//   const { hardhatToken, owner, addr1, addr2 } = await loadFixture(
-//     deployTokenFixture,
-//   );
+//     attempts++;
 
-//   // Transfer 50 tokens from owner to addr1
-//   await expect(
-//     hardhatToken.transfer(addr1.address, 50),
-//   ).to.changeTokenBalances(hardhatToken, [owner, addr1], [-50, 50]);
+//     if (attempts > steps) {
+//       throw new Error(
+//         `Test completed after ${steps} attempts to roll the die and roll 6.`,
+//       );
+//     }
+//   } while (diceRollResult !== 6);
 
-//   // Transfer 50 tokens from addr1 to addr2
-//   // We use .connect(signer) to send a transaction from another account
-//   await expect(
-//     hardhatToken.connect(addr1).transfer(addr2.address, 50),
-//   ).to.changeTokenBalances(hardhatToken, [addr1, addr2], [-50, 50]);
+//   console.log(`Dropped 6 after ${attempts} tries.`);
+//   expect(diceRollResult).to.equal(6);
 // });

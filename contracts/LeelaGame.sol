@@ -2,11 +2,7 @@
 /* solhint-disable */
 pragma solidity ^0.8.0;
 
-import './LeelaToken.sol';
-
 contract LeelaGame {
-  LeelaToken public leelaToken;
-
   uint8 constant MAX_ROLL = 6;
   uint8 constant WIN_PLAN = 68;
   uint8 constant TOTAL_PLANS = 72;
@@ -19,8 +15,7 @@ contract LeelaGame {
     uint8 consecutiveSixes;
   }
 
-  constructor(address leelaTokenAddress) {
-    leelaToken = LeelaToken(leelaTokenAddress);
+  constructor() {
     Player memory newPlayer;
     newPlayer.plan = 68;
     newPlayer.previousPlan = 68;
@@ -37,16 +32,7 @@ contract LeelaGame {
     uint256 indexed currentPlan
   );
 
-  // Function for writing off tokens for each move
-  function chargeTokenForRoll(address playerAddress) private {
-    uint256 allowance = leelaToken.allowance(playerAddress, address(this));
-    require(allowance >= 1, 'Insufficient allowance for transfer');
-
-    bool success = leelaToken.transferFrom(playerAddress, address(this), 1);
-    require(success, 'TransferFrom failed');
-  }
-
-  function rollDice() external returns (uint8) {
+  function rollDice() external {
     uint8 rollResult = generateRandomNumber();
     playerRolls[msg.sender].push(rollResult);
 
@@ -55,14 +41,11 @@ contract LeelaGame {
       player.plan = 6;
       player.isStart = true;
       player.consecutiveSixes = 1;
-      chargeTokenForRoll(msg.sender);
-      return rollResult;
+      playerPlans[msg.sender].push(6);
+      emit DiceRolled(msg.sender, rollResult, 6);
+    } else if (player.isStart) {
+      handleRollResult(rollResult, msg.sender);
     }
-
-    handleRollResult(rollResult, msg.sender);
-    chargeTokenForRoll(msg.sender);
-    emit DiceRolled(msg.sender, rollResult, player.plan);
-    return rollResult;
   }
 
   function generateRandomNumber() private view returns (uint8) {
@@ -81,15 +64,6 @@ contract LeelaGame {
 
   function handleRollResult(uint8 roll, address playerAddress) private {
     Player storage player = players[playerAddress];
-    if (!player.isStart) {
-      if (roll == MAX_ROLL) {
-        player.isStart = true;
-        player.consecutiveSixes = 1;
-        player.plan = 6;
-        return;
-      }
-      return;
-    }
 
     if (roll == MAX_ROLL) {
       player.consecutiveSixes += 1;
@@ -170,6 +144,7 @@ contract LeelaGame {
       player.previousPlan = newPlan;
       player.isStart = false;
     }
+    emit DiceRolled(playerAddress, roll, newPlan);
   }
 
   function getRollHistory(address player) public view returns (uint8[] memory) {
