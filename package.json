@@ -42,5 +42,9 @@
     "tabWidth": 2,
     "singleQuote": true,
     "trailingComma": "all"
+  },
+  "dependencies": {
+    "@tenderly/hardhat-tenderly": "^1.7.7",
+    "dotenv": "^16.3.1"
   }
 }

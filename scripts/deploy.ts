@@ -1,26 +1,26 @@
-import { ethers } from "hardhat";
+const hre = require('hardhat');
+const fs = require('fs');
+require('dotenv').config();
+
+let provider = process.env.TENDERLY_PROVIDER;
+let username = process.env.TENDERLY_USERNAME;
+let project = process.env.TENDERLY_PROJECT;
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
+  const SimpleStorage = await hre.ethers.getContractFactory('LeelaGame');
+  const simpleStorage = await SimpleStorage.deploy();
 
-  const lockedAmount = ethers.parseEther("0.001");
+  await simpleStorage.deployed();
 
-  const lock = await ethers.deployContract("Lock", [unlockTime], {
-    value: lockedAmount,
+  console.log(`SimpleStorage deployed to ${simpleStorage.address}`);
+
+  let data = { address: simpleStorage.address };
+
+  fs.writeFile('./address.json', JSON.stringify(data), (err) => {
+    if (err) console.log(err);
   });
-
-  await lock.waitForDeployment();
-
-  console.log(
-    `Lock with ${ethers.formatEther(
-      lockedAmount
-    )}ETH and unlock timestamp ${unlockTime} deployed to ${lock.target}`
-  );
 }
 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
