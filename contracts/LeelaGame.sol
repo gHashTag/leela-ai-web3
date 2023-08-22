@@ -15,6 +15,17 @@ contract LeelaGame {
     uint8 consecutiveSixes;
   }
 
+  struct Report {
+    uint256 reportId;
+    address reporter;
+    string content;
+    uint256 plan;
+    uint256 timestamp;
+  }
+
+  uint256 private reportIdCounter;
+  mapping(uint256 => Report) public reports;
+
   constructor() {
     Player memory newPlayer;
     newPlayer.plan = 68;
@@ -25,6 +36,7 @@ contract LeelaGame {
   mapping(address => Player) public players;
   mapping(address => uint8[]) public playerRolls;
   mapping(address => uint256[]) public playerPlans;
+  mapping(address => bool) public playerReportCreated;
 
   event DiceRolled(
     address indexed roller,
@@ -37,6 +49,14 @@ contract LeelaGame {
     playerRolls[msg.sender].push(rollResult);
 
     Player storage player = players[msg.sender];
+
+    if (player.isStart) {
+      require(
+        reports[reportIdCounter].reporter == msg.sender,
+        'You must create a report before rolling the dice.'
+      );
+    }
+
     if (!player.isStart && rollResult == 6) {
       player.plan = 6;
       player.isStart = true;
@@ -162,5 +182,59 @@ contract LeelaGame {
     address player
   ) public view returns (uint256[] memory) {
     return playerPlans[player];
+  }
+
+  function createReport(string memory content) external {
+    uint256 currentPlan = players[msg.sender].plan;
+    require(
+      players[msg.sender].isStart,
+      'You must start the game before creating a report.'
+    );
+
+    reportIdCounter++; // Увеличиваем счетчик
+
+    reports[reportIdCounter] = Report({
+      reportId: reportIdCounter, // Сохраняем reportId
+      reporter: msg.sender,
+      content: content,
+      plan: currentPlan,
+      timestamp: block.timestamp
+    });
+    playerReportCreated[msg.sender] = true;
+  }
+
+  function updateReportContent(
+    uint256 reportId,
+    string memory newContent
+  ) external {
+    Report storage report = reports[reportId];
+    require(
+      report.reporter == msg.sender,
+      'Only the reporter can update the report.'
+    );
+    report.content = newContent;
+  }
+
+  function deleteReport(uint256 reportId) external {
+    require(reportId <= reportIdCounter && reportId > 0, 'Invalid report ID.');
+    Report storage report = reports[reportId];
+    require(
+      report.reporter == msg.sender,
+      'Only the reporter can delete the report.'
+    );
+    report.content = 'This report has been deleted.';
+  }
+
+  function getAllReports() external view returns (Report[] memory) {
+    Report[] memory allReports = new Report[](reportIdCounter);
+    for (uint256 i = 1; i <= reportIdCounter; i++) {
+      allReports[i - 1] = reports[i];
+    }
+    return allReports;
+  }
+
+  function getReport(uint256 reportId) external view returns (Report memory) {
+    require(reportId <= reportIdCounter && reportId > 0, 'Invalid report ID.');
+    return reports[reportId];
   }
 }

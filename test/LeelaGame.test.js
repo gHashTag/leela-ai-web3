@@ -14,6 +14,51 @@ describe('LeelaGame', function () {
 
     return { leelaGame, owner, addr1, addr2 };
   }
+  it('Players can create reports after starting the game', async function () {
+    const { leelaGame, owner } = await loadFixture(deployTokenFixture);
+
+    // Start the game by rolling a 6
+    let rollResult = 0;
+    while (rollResult !== 6) {
+      const rollDiceTx = await leelaGame.rollDice();
+      const receipt = await rollDiceTx.wait();
+
+      if (receipt.logs.length > 0) {
+        const diceRolledEvent = receipt.logs[0];
+        rollResult = Number(diceRolledEvent.args.rolled);
+      }
+    }
+
+    // Create a report after starting the game
+    const createReportTx = await leelaGame.createReport('Turn report');
+    await createReportTx.wait();
+
+    // Get all reports and check if the created report exists
+    const allReports = await leelaGame.getAllReports();
+    const lastReport = allReports[allReports.length - 1];
+
+    expect(lastReport.reporter).to.equal(owner.address);
+    expect(lastReport.content).to.equal('Turn report');
+
+    // Update the report's content
+    const updateReportTx = await leelaGame.updateReportContent(
+      lastReport.reportId,
+      'Updated report content',
+    );
+    await updateReportTx.wait();
+
+    // Get the updated report and check if the content is updated
+    const updatedReport = await leelaGame.reports(lastReport.reportId);
+    expect(updatedReport.content).to.equal('Updated report content');
+
+    // Delete the report
+    const deleteReportTx = await leelaGame.deleteReport(lastReport.reportId);
+    await deleteReportTx.wait();
+
+    // Get the deleted report and check if the content is updated
+    const deletedReport = await leelaGame.reports(lastReport.reportId);
+    expect(deletedReport.content).to.equal('This report has been deleted.');
+  });
 
   it('Player can only start the game after rolling a 6', async function () {
     const { leelaGame, owner } = await loadFixture(deployTokenFixture);
@@ -25,94 +70,51 @@ describe('LeelaGame', function () {
 
       if (receipt.logs.length > 0) {
         const diceRolledEvent = receipt.logs[0];
-
         const currentRollResult = Number(diceRolledEvent.args.rolled);
-        console.log('currentRollResult', currentRollResult);
-        console.log('currentPlan', diceRolledEvent.args.currentPlan);
         const plan = await leelaGame.getPlanHistory(owner.address);
-        console.log('plan', plan);
         const [isStart] = await leelaGame.checkGameStatus(owner.address);
-        console.log('isStart', isStart);
         rollResult = currentRollResult;
       }
     }
 
     const [isStart] = await leelaGame.checkGameStatus(owner.address);
-
-    // expect(initialPlan).to.equal(68);
-
-    // expect(rollResult).to.equal(6);
     expect(isStart).to.equal(true);
   });
 
-  // it('Should roll the dice until game is won', async function () {
-  //   const { leelaGame, owner } = await loadFixture(deployTokenFixture);
-  //   // console.log('leelaGame', leelaGame);
-  //   let gameStatus;
-  //   let attempts = 0;
-  //   const maxAttempts = 50;
-  //   let diceRollResult = 0;
+  it('Should roll the dice until game is won', async function () {
+    const { leelaGame, owner } = await loadFixture(deployTokenFixture);
+    let gameStatus;
+    let attempts = 0;
+    const maxAttempts = 99;
+    let diceRollResult = 0;
 
-  //   do {
-  //     const rollDiceTx = await leelaGame.rollDice();
-  //     const receipt = await rollDiceTx.wait();
-  //     if (receipt.logs.length > 0) {
-  //       const diceRolledEvent = receipt.logs[0];
-  //       const currentRollResult = Number(diceRolledEvent.args.rolled);
-  //       console.log('diceRollResult', currentRollResult);
-  //       diceRollResult = currentRollResult;
-  //     }
-  //     try {
-  //       gameStatus = await leelaGame.checkGameStatus(owner.address);
-  //       // console.log('gameStatus', gameStatus);
-  //       // // console.log("leelaGame", leelaGame);
-  //       // const getRollHistory = await leelaGame.getRollHistory(owner.address);
-  //       // console.log('getRollHistory', getRollHistory);
-  //     } catch (error) {
-  //       console.error('error', error);
-  //     }
-  //     // console.log('attempts', attempts);
-  //     const planHistory = await leelaGame.getPlanHistory(owner.address);
+    // Начинаем игру
+    const rollStartTx = await leelaGame.rollDice();
+    await rollStartTx.wait();
 
-  //     console.log('planHistory', planHistory);
-  //     // console.log(
-  //     //   `Attempt ${attempts}: Roll - ${latestRoll}, Current Plan - ${currentPlan}`,
-  //     // );
+    do {
+      const rollDiceTx = await leelaGame.rollDice();
+      const receipt = await rollDiceTx.wait();
 
-  //     attempts++;
-  //   } while (!gameStatus.isFinished && attempts < maxAttempts);
+      gameStatus = await leelaGame.checkGameStatus(owner.address);
 
-  //   console.log(`Game won after ${attempts} attempts.`);
-  //   expect(gameStatus.isFinished).to.equal(true);
-  // });
+      if (receipt.logs.length > 0) {
+        const diceRolledEvent = receipt.logs[0];
+        const currentRollResult = Number(diceRolledEvent.args.rolled);
+        // console.log('diceRollResult', currentRollResult);
+        diceRollResult = currentRollResult;
+        if (gameStatus.isStart) {
+          const createReportTx = await leelaGame.createReport('Turn report');
+          await createReportTx.wait();
+        }
+      }
+
+      // const planHistory = await leelaGame.getPlanHistory(owner.address);
+      // console.log('planHistory', planHistory);
+      attempts++;
+    } while (!gameStatus.isFinished && attempts < maxAttempts);
+
+    console.log(`Game won after ${attempts} attempts.`);
+    expect(gameStatus.isFinished).to.equal(true);
+  });
 });
-// it('Must roll the die until a 6 is rolled', async function () {
-//   const { leelaGame, addr1 } = await loadFixture(deployTokenFixture);
-
-//   let attempts = 0;
-//   const steps = 100;
-//   let diceRollResult = 0;
-
-//   do {
-//     const rollDiceTx = await leelaGame.rollDice();
-//     const receipt = await rollDiceTx.wait();
-
-//     if (receipt.logs.length > 0) {
-//       const diceRolledEvent = receipt.logs[0];
-//       const currentRollResult = Number(diceRolledEvent.args.rolled);
-//       console.log('diceRollResult', currentRollResult);
-//       diceRollResult = currentRollResult;
-//     }
-
-//     attempts++;
-
-//     if (attempts > steps) {
-//       throw new Error(
-//         `Test completed after ${steps} attempts to roll the die and roll 6.`,
-//       );
-//     }
-//   } while (diceRollResult !== 6);
-
-//   console.log(`Dropped 6 after ${attempts} tries.`);
-//   expect(diceRollResult).to.equal(6);
-// });
