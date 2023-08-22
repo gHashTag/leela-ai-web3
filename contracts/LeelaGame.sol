@@ -15,16 +15,28 @@ contract LeelaGame {
     uint8 consecutiveSixes;
   }
 
+  struct Comment {
+    uint256 commentId;
+    uint256 reportId;
+    address commenter;
+    string content;
+    uint256 timestamp;
+  }
+
   struct Report {
     uint256 reportId;
     address reporter;
     string content;
     uint256 plan;
     uint256 timestamp;
+    uint256[] commentIds;
   }
 
   uint256 private reportIdCounter;
+  uint256 private commentIdCounter;
+
   mapping(uint256 => Report) public reports;
+  mapping(uint256 => Comment) public comments;
 
   constructor() {
     Player memory newPlayer;
@@ -198,7 +210,8 @@ contract LeelaGame {
       reporter: msg.sender,
       content: content,
       plan: currentPlan,
-      timestamp: block.timestamp
+      timestamp: block.timestamp,
+      commentIds: new uint256[](0)
     });
     playerReportCreated[msg.sender] = true;
   }
@@ -236,5 +249,49 @@ contract LeelaGame {
   function getReport(uint256 reportId) external view returns (Report memory) {
     require(reportId <= reportIdCounter && reportId > 0, 'Invalid report ID.');
     return reports[reportId];
+  }
+
+  function addComment(uint256 reportId, string memory content) external {
+    Report storage report = reports[reportId];
+    require(report.reporter != address(0), 'Report does not exist.');
+
+    commentIdCounter++;
+
+    comments[commentIdCounter] = Comment({
+      commentId: commentIdCounter,
+      reportId: reportId,
+      commenter: msg.sender,
+      content: content,
+      timestamp: block.timestamp
+    });
+
+    report.commentIds.push(commentIdCounter);
+  }
+
+  function updateCommentContent(
+    uint256 commentId,
+    string memory newContent
+  ) external {
+    Comment storage comment = comments[commentId];
+    require(
+      comment.commenter == msg.sender,
+      'Only the commenter can update the comment.'
+    );
+    comment.content = newContent;
+  }
+
+  function getAllCommentsForReport(
+    uint256 reportId
+  ) external view returns (Comment[] memory) {
+    Report storage report = reports[reportId];
+    uint256[] storage commentIds = report.commentIds;
+
+    Comment[] memory allComments = new Comment[](commentIds.length);
+
+    for (uint256 i = 0; i < commentIds.length; i++) {
+      allComments[i] = comments[commentIds[i]];
+    }
+
+    return allComments;
   }
 }

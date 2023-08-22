@@ -14,6 +14,7 @@ describe('LeelaGame', function () {
 
     return { leelaGame, owner, addr1, addr2 };
   }
+
   it('Players can create reports after starting the game', async function () {
     const { leelaGame, owner } = await loadFixture(deployTokenFixture);
 
@@ -85,7 +86,7 @@ describe('LeelaGame', function () {
     const { leelaGame, owner } = await loadFixture(deployTokenFixture);
     let gameStatus;
     let attempts = 0;
-    const maxAttempts = 99;
+    const maxAttempts = 999;
     let diceRollResult = 0;
 
     // Начинаем игру
@@ -116,5 +117,60 @@ describe('LeelaGame', function () {
 
     console.log(`Game won after ${attempts} attempts.`);
     expect(gameStatus.isFinished).to.equal(true);
+  });
+
+  it('Players can add and update comments', async function () {
+    const { leelaGame, owner } = await loadFixture(deployTokenFixture);
+
+    // Start the game by rolling a 6
+    let rollResult = 0;
+    while (rollResult !== 6) {
+      const rollDiceTx = await leelaGame.rollDice();
+      const receipt = await rollDiceTx.wait();
+
+      if (receipt.logs.length > 0) {
+        const diceRolledEvent = receipt.logs[0];
+        rollResult = Number(diceRolledEvent.args.rolled);
+      }
+    }
+
+    // Create a report after starting the game
+    const createReportTx = await leelaGame.createReport('Turn report');
+    await createReportTx.wait();
+
+    // Get all reports and get the last one
+    const allReports = await leelaGame.getAllReports();
+    const lastReport = allReports[allReports.length - 1];
+
+    // Add a comment to the report
+    const addCommentTx = await leelaGame.addComment(
+      lastReport.reportId,
+      'Test Comment',
+    );
+    await addCommentTx.wait();
+
+    // Get the report's comments and check if the comment exists
+    const reportComments = await leelaGame.getAllCommentsForReport(
+      lastReport.reportId,
+    );
+    const lastComment = reportComments[reportComments.length - 1];
+    expect(lastComment.commenter).to.equal(owner.address);
+    expect(lastComment.content).to.equal('Test Comment');
+
+    // Update the comment's content
+    const updateCommentTx = await leelaGame.updateCommentContent(
+      lastComment.commentId,
+      'Updated comment content',
+    );
+    await updateCommentTx.wait();
+
+    // Get the updated comment and check if the content is updated
+    const allCommentsForReport = await leelaGame.getAllCommentsForReport(
+      lastComment.reportId,
+    );
+
+    const updatedComment =
+      allCommentsForReport[allCommentsForReport.length - 1];
+    expect(updatedComment.content).to.equal('Updated comment content');
   });
 });
