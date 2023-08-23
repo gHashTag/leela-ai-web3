@@ -15,6 +15,45 @@ describe('LeelaGame', function () {
     return { leelaGame, owner, addr1, addr2 };
   }
 
+  it('Should roll the dice until game is won', async function () {
+    const { leelaGame, owner } = await loadFixture(deployTokenFixture);
+    let gameStatus;
+    let attempts = 0;
+    const maxAttempts = 999;
+    let diceRollResult = 0;
+    // console.log('gameStatus', gameStatus);
+    // Start game
+    const rollStartTx = await leelaGame.rollDice();
+    await rollStartTx.wait();
+
+    do {
+      const rollDiceTx = await leelaGame.rollDice();
+      const receipt = await rollDiceTx.wait();
+
+      gameStatus = await leelaGame.checkGameStatus(owner.address);
+
+      if (receipt.logs.length > 0) {
+        const diceRolledEvent = receipt.logs[0];
+        const currentRollResult = Number(diceRolledEvent.args.rolled);
+        // console.log('diceRollResult', currentRollResult);
+        diceRollResult = currentRollResult;
+        // console.log('gameStatus.isStart', gameStatus.isStart);
+        if (gameStatus.isStart) {
+          const createReportTx = await leelaGame.createReport('Turn report');
+          await createReportTx.wait();
+        }
+      }
+
+      // const planHistory = await leelaGame.getPlanHistory(owner.address);
+      // console.log('planHistory', planHistory);
+      attempts++;
+      // console.log('attempts', attempts);
+    } while (!gameStatus.isFinished && attempts < maxAttempts);
+
+    console.log(`Game won after ${attempts} attempts.`);
+    expect(gameStatus.isFinished).to.equal(true);
+  });
+
   it('Players can create reports after starting the game', async function () {
     const { leelaGame, owner } = await loadFixture(deployTokenFixture);
 
@@ -82,44 +121,7 @@ describe('LeelaGame', function () {
     expect(isStart).to.equal(true);
   });
 
-  it('Should roll the dice until game is won', async function () {
-    const { leelaGame, owner } = await loadFixture(deployTokenFixture);
-    let gameStatus;
-    let attempts = 0;
-    const maxAttempts = 999;
-    let diceRollResult = 0;
-
-    // Начинаем игру
-    const rollStartTx = await leelaGame.rollDice();
-    await rollStartTx.wait();
-
-    do {
-      const rollDiceTx = await leelaGame.rollDice();
-      const receipt = await rollDiceTx.wait();
-
-      gameStatus = await leelaGame.checkGameStatus(owner.address);
-
-      if (receipt.logs.length > 0) {
-        const diceRolledEvent = receipt.logs[0];
-        const currentRollResult = Number(diceRolledEvent.args.rolled);
-        // console.log('diceRollResult', currentRollResult);
-        diceRollResult = currentRollResult;
-        if (gameStatus.isStart) {
-          const createReportTx = await leelaGame.createReport('Turn report');
-          await createReportTx.wait();
-        }
-      }
-
-      // const planHistory = await leelaGame.getPlanHistory(owner.address);
-      // console.log('planHistory', planHistory);
-      attempts++;
-    } while (!gameStatus.isFinished && attempts < maxAttempts);
-
-    console.log(`Game won after ${attempts} attempts.`);
-    expect(gameStatus.isFinished).to.equal(true);
-  });
-
-  it('Players can add and update comments', async function () {
+  it('Players can add, update, and delete comments', async function () {
     const { leelaGame, owner } = await loadFixture(deployTokenFixture);
 
     // Start the game by rolling a 6
@@ -172,5 +174,21 @@ describe('LeelaGame', function () {
     const updatedComment =
       allCommentsForReport[allCommentsForReport.length - 1];
     expect(updatedComment.content).to.equal('Updated comment content');
+
+    // Delete the comment
+    const deleteCommentTx = await leelaGame.deleteComment(
+      lastComment.commentId,
+    );
+    await deleteCommentTx.wait();
+
+    // Get the comments for the report and check if the comment is deleted
+    const remainingCommentsForReport = await leelaGame.getAllCommentsForReport(
+      lastComment.reportId,
+    );
+
+    const deletedComment = remainingCommentsForReport.find(
+      (comment) => comment.commentId === lastComment.commentId,
+    );
+    expect(deletedComment).to.be.undefined;
   });
 });

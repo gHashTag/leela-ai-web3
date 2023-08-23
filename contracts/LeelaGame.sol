@@ -7,6 +7,36 @@ contract LeelaGame {
   uint8 constant WIN_PLAN = 68;
   uint8 constant TOTAL_PLANS = 72;
 
+  event ReportAction(
+    uint256 indexed reportId,
+    address indexed actor,
+    string content,
+    uint256 plan,
+    uint256 timestamp,
+    ActionType action
+  );
+
+  event CommentAction(
+    uint256 indexed commentId,
+    uint256 indexed reportId,
+    address indexed actor,
+    string content,
+    uint256 timestamp,
+    ActionType action
+  );
+
+  enum ActionType {
+    Created,
+    Updated,
+    Deleted
+  }
+
+  event DiceRolled(
+    address indexed roller,
+    uint8 indexed rolled,
+    uint256 indexed currentPlan
+  );
+
   struct Player {
     uint256 plan;
     uint256 previousPlan;
@@ -49,12 +79,6 @@ contract LeelaGame {
   mapping(address => uint8[]) public playerRolls;
   mapping(address => uint256[]) public playerPlans;
   mapping(address => bool) public playerReportCreated;
-
-  event DiceRolled(
-    address indexed roller,
-    uint8 indexed rolled,
-    uint256 indexed currentPlan
-  );
 
   function rollDice() external {
     uint8 rollResult = generateRandomNumber();
@@ -213,7 +237,17 @@ contract LeelaGame {
       timestamp: block.timestamp,
       commentIds: new uint256[](0)
     });
+
     playerReportCreated[msg.sender] = true;
+
+    emit ReportAction(
+      reportIdCounter,
+      msg.sender,
+      content,
+      currentPlan,
+      block.timestamp,
+      ActionType.Created
+    );
   }
 
   function updateReportContent(
@@ -226,6 +260,15 @@ contract LeelaGame {
       'Only the reporter can update the report.'
     );
     report.content = newContent;
+
+    emit ReportAction(
+      reportId,
+      msg.sender,
+      newContent,
+      report.plan,
+      block.timestamp,
+      ActionType.Updated
+    );
   }
 
   function deleteReport(uint256 reportId) external {
@@ -236,6 +279,15 @@ contract LeelaGame {
       'Only the reporter can delete the report.'
     );
     report.content = 'This report has been deleted.';
+
+    emit ReportAction(
+      reportId,
+      msg.sender,
+      'This report has been deleted.',
+      report.plan,
+      block.timestamp,
+      ActionType.Deleted
+    );
   }
 
   function getAllReports() external view returns (Report[] memory) {
@@ -249,6 +301,21 @@ contract LeelaGame {
   function getReport(uint256 reportId) external view returns (Report memory) {
     require(reportId <= reportIdCounter && reportId > 0, 'Invalid report ID.');
     return reports[reportId];
+  }
+
+  function getAllCommentsForReport(
+    uint256 reportId
+  ) external view returns (Comment[] memory) {
+    Report storage report = reports[reportId];
+    uint256[] storage commentIds = report.commentIds;
+
+    Comment[] memory allComments = new Comment[](commentIds.length);
+
+    for (uint256 i = 0; i < commentIds.length; i++) {
+      allComments[i] = comments[commentIds[i]];
+    }
+
+    return allComments;
   }
 
   function addComment(uint256 reportId, string memory content) external {
@@ -266,6 +333,15 @@ contract LeelaGame {
     });
 
     report.commentIds.push(commentIdCounter);
+
+    emit CommentAction(
+      commentIdCounter,
+      reportId,
+      msg.sender,
+      content,
+      block.timestamp,
+      ActionType.Created
+    );
   }
 
   function updateCommentContent(
@@ -277,21 +353,45 @@ contract LeelaGame {
       comment.commenter == msg.sender,
       'Only the commenter can update the comment.'
     );
+
     comment.content = newContent;
+
+    emit CommentAction(
+      commentId,
+      comment.reportId,
+      msg.sender,
+      newContent,
+      block.timestamp,
+      ActionType.Updated
+    );
   }
 
-  function getAllCommentsForReport(
-    uint256 reportId
-  ) external view returns (Comment[] memory) {
-    Report storage report = reports[reportId];
-    uint256[] storage commentIds = report.commentIds;
+  function deleteComment(uint256 commentId) external {
+    Comment storage comment = comments[commentId];
+    require(
+      comment.commenter == msg.sender,
+      'Only the commenter can delete the comment.'
+    );
 
-    Comment[] memory allComments = new Comment[](commentIds.length);
+    delete comments[commentId];
 
-    for (uint256 i = 0; i < commentIds.length; i++) {
-      allComments[i] = comments[commentIds[i]];
+    // Remove the commentId from the commentIds array in the corresponding report
+    uint256[] storage reportCommentIds = reports[comment.reportId].commentIds;
+    for (uint256 i = 0; i < reportCommentIds.length; i++) {
+      if (reportCommentIds[i] == commentId) {
+        reportCommentIds[i] = reportCommentIds[reportCommentIds.length - 1];
+        reportCommentIds.pop();
+        break;
+      }
     }
 
-    return allComments;
+    emit CommentAction(
+      commentId,
+      comment.reportId,
+      msg.sender,
+      comment.content,
+      block.timestamp,
+      ActionType.Deleted
+    );
   }
 }
