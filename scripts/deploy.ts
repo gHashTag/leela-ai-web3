@@ -2,26 +2,40 @@ const hre = require('hardhat');
 const fs = require('fs');
 require('dotenv').config();
 
-let provider = process.env.TENDERLY_PROVIDER;
-let username = process.env.TENDERLY_USERNAME;
-let project = process.env.TENDERLY_PROJECT;
-
 async function main() {
-  const SimpleStorage = await hre.ethers.getContractFactory('LeelaGame');
-  const simpleStorage = await SimpleStorage.deploy();
+  const LeelaGame = await hre.ethers.getContractFactory('LeelaGame');
+  console.log('LeelaGame', LeelaGame);
+  const leelaGame = await LeelaGame.deploy();
+  console.log('leelaGame', leelaGame);
+  console.log(`LeelaGame deployed to ${leelaGame.target}`);
 
-  await simpleStorage.deployed();
+  // Записываем адрес в файл address.json
+  let data = { address: leelaGame.target };
+  fs.writeFileSync('./address.json', JSON.stringify(data));
 
-  console.log(`SimpleStorage deployed to ${simpleStorage.address}`);
+  // Получаем метаданные о контракте
+  const contractArtifact = await hre.artifacts.readArtifact('LeelaGame');
 
-  let data = { address: simpleStorage.address };
+  // Получите байткод и ABI
+  const bytecode = contractArtifact.bytecode;
+  const abi = contractArtifact.abi;
 
-  fs.writeFile('./address.json', JSON.stringify(data), (err) => {
-    if (err) console.log(err);
-  });
+  // Сохраните байткод и ABI
+  fs.writeFileSync('LeelaGameBytecode.json', JSON.stringify(bytecode, null, 2));
+  fs.writeFileSync('LeelaGameABI.json', JSON.stringify(abi, null, 2));
+
+  console.log('Bytecode and ABI saved.');
+
+  if (hre.network.name === 'mumbai') {
+    await hre.run('verify:verify', {
+      address: data.address,
+    });
+  }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
