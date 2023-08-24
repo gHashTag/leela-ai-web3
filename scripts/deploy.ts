@@ -31,6 +31,8 @@ async function main() {
       address: data.address,
     });
   }
+  // verification on the block explorer
+  // npx hardhat verify --network mumbai 0xb970373d091b3b60f1048036aDD1a72A2497256A
 }
 
 main()
